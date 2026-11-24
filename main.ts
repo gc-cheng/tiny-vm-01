@@ -10,13 +10,18 @@ function run(p, q) {
   const C = new Int32Array(64); // call stack
   const M = new Int32Array(256); // memory
   const O = new Uint8Array(65536); // output
-  let s = 0, c = 0, pc = 0, t = 0, i = 0, ol = 0;
+  let s = 0, c = 0, pc = 0, i = 0, ol = 0, budget = 1000000;
   const R = (e) => [O.slice(0, ol), e];
   for (;;) {
-    if (t === 1000000) return R(10);
-    if (pc < 0 || pc >= n) return R(9);
-    t++;
-    const k = p[pc];
+    // Hot loop, no step-limit check inside it: run at most 1024 steps per
+    // chunk, the chunk budget enforcing the 1,000,000-step trap (exit 10)
+    // structurally. The pc check is folded into the fetch: p[pc] is
+    // undefined exactly when pc is outside the program (exit 9).
+    let e = budget < 1024 ? budget : 1024;
+    budget -= e;
+    while (e-- > 0) {
+      const k = p[pc];
+      if (k === undefined) return R(9);
     switch (k) {
       case 0x00: return R(0);
       case 0x01:
@@ -145,6 +150,8 @@ function run(p, q) {
         return R(D[--s] & 255);
       default: return R(5);
     }
+    }
+    if (budget === 0) return R(10);
   }
 }
 
